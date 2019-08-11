@@ -195,8 +195,10 @@ if __name__ == "__main__":
         b3user = os.getenv('B3_USER')
         b3passwd = os.getenv('B3_PASSWD')
     else:
-        b3user = input("B3 user:")
-        b3passwd = getpass.getpass("B3 password:")
+        b3user = input("B3 user CPF: ")
+        b3user.replace('.', '')
+        b3user.replace('-', '')
+        b3passwd = getpass.getpass("B3 password: ")
 
     cei = B3StockParser(b3user, b3passwd)
     mystocks = cei.parse()
