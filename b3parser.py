@@ -71,14 +71,14 @@ class B3StockParser:
         return self._stocks_table.copy()
 
     def __get_login_page(self) -> bool:
-        res = requests.get(B3Parser.__B3_HOME_URL)
+        res = requests.get(B3StockParser.__B3_HOME_URL)
         if res.status_code != 200:
             return False
 
         return self.__find_html_attributes(res.text)
 
     def __login(self) -> bool:
-        res = requests.post(B3Parser.__B3_HOME_URL, data={  # Login
+        res = requests.post(B3StockParser.__B3_HOME_URL, data={  # Login
             "ctl00$ContentPlaceHolder1$txtLogin": self.user,
             "ctl00$ContentPlaceHolder1$txtSenha": self.passwd,
             "ctl00$ContentPlaceHolder1$btnLogar": "Entrar",
@@ -94,7 +94,7 @@ class B3StockParser:
         return self._investor is not None
 
     def __get_transactions_page(self) -> bool:
-        res = requests.get(B3Parser.__B3_TRANSACTIONS_URL, cookies={
+        res = requests.get(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
             "Investidor": self._investor
         })
         if res.status_code != 200:
@@ -103,7 +103,7 @@ class B3StockParser:
         return self.__find_html_attributes(res.text, True)
 
     def __get_transactions(self) -> bool:
-        res = requests.post(B3Parser.__B3_TRANSACTIONS_URL, cookies={
+        res = requests.post(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
             "Investidor": self._investor
         }, data={
             "ctl00$ContentPlaceHolder1$ddlAgentes": self._institution,
@@ -168,7 +168,7 @@ class B3StockParser:
             return False
 
         soup = BeautifulSoup(self.__result, 'html.parser')
-        stocks_table = soup.find('div', id=B3Parser.__STOCKS_TABLE_ID)
+        stocks_table = soup.find('div', id=B3StockParser.__STOCKS_TABLE_ID)
         if stocks_table is None:
             return False
 

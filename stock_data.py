@@ -4,7 +4,7 @@ from bs4 import element
 
 
 class StockData:
-    def __init__(self, table_row: element = None):
+    def __init__(self, table_row: element = None) -> None:
         self.code: str = ""
         self.buy_date: date = None
         self.sell_date: date = None
@@ -19,7 +19,7 @@ class StockData:
         if table_row is not None:
             self.__parse_row(table_row)
 
-    def __parse_row(self, row: element):
+    def __parse_row(self, row: element) -> None:
         data_list = row.find_all('td')
         self.code = data_list[0].text.strip()
 
@@ -46,6 +46,12 @@ class StockData:
 
     def __str__(self) -> str:
         if self.__initialized:
-            return "%s: %s" % (self.code, self.position)
+            if self.position == 'ZERADA':
+                return "%s: %s stocks, profit: R$%.2f" % (self.code, self.buy_amount,
+                                                        self.sell_amount * (self.sell_price - self.buy_price))
+            elif self.position == 'COMPRADA':
+                return "%s: %s stocks, bought at: %s, R$%s" %(self.code, self.buy_amount, self.buy_date, self.buy_price)
+            else:
+                return "Position type not implemented yet"
         else:
             return "Stock not initialized"
