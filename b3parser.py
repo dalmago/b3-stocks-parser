@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup, element
 
 from stock_data import StockData
 
+USER_AGENT_HEADER = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like "
+                                   "Gecko) Chrome/39.0.2171.95 Safari/537.36"}
+
 
 class B3StockParser:
     __B3_HOME_URL = "https://cei.b3.com.br/CEI_Responsivo/login.aspx"
@@ -71,7 +74,7 @@ class B3StockParser:
         return self._stocks_table.copy()
 
     def __get_login_page(self) -> bool:
-        res = requests.get(B3StockParser.__B3_HOME_URL)
+        res = requests.get(B3StockParser.__B3_HOME_URL, headers=USER_AGENT_HEADER)
         if res.status_code != 200:
             return False
 
@@ -85,7 +88,7 @@ class B3StockParser:
             "__VIEWSTATE": self._view_state,
             "__EVENTVALIDATION": self._event_validation,
             "__VIEWSTATEGENERATOR": self._view_state_generator
-        })
+        }, headers=USER_AGENT_HEADER)
 
         if res.status_code != 200:
             return False
@@ -96,7 +99,7 @@ class B3StockParser:
     def __get_transactions_page(self) -> bool:
         res = requests.get(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
             "Investidor": self._investor
-        })
+        }, headers=USER_AGENT_HEADER)
         if res.status_code != 200:
             return False
 
@@ -114,7 +117,7 @@ class B3StockParser:
             "__VIEWSTATE": self._view_state,
             "__EVENTVALIDATION": self._event_validation,
             "__VIEWSTATEGENERATOR": self._view_state_generator
-        })
+        }, headers=USER_AGENT_HEADER)
 
         if res.status_code != 200:
             return False
@@ -139,8 +142,9 @@ class B3StockParser:
 
         view_state_gen = soup.find('input', id="__VIEWSTATEGENERATOR")
         if view_state_gen is None:
-            return False
-        self._view_state_generator = view_state_gen.get('value', '')
+            self._view_state_generator = ''
+        else:
+            self._view_state_generator = view_state_gen.get('value', '')
 
         if read_form_fields:
             date_from = soup.find('input', id="ctl00_ContentPlaceHolder1_txtDataDeBolsa")
