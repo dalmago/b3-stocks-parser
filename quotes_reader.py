@@ -10,11 +10,10 @@ from selenium.webdriver.firefox.options import Options
 from b3parser import B3StockParser
 
 BASE_URL = "https://br.tradingview.com/symbols/BMFBOVESPA-%s/"
-LOCAL_FILE = "stocks.json"
+LOCAL_FILE = "b3parser/stocks.json"
 
 options = Options()
 options.headless = True
-driver = webdriver.Firefox(options=options)
 
 
 def read_local() -> Dict:
@@ -38,15 +37,15 @@ def write_local(configs: Dict) -> None:
         json.dump(configs, f)
 
 
-def get_current_price(stock_code: str) -> float:
+def get_current_price(stock_code: str, sel_driver: webdriver.Firefox) -> float:
     logging.debug("Getting current price for %s" % stock_code)
 
-    driver.get(BASE_URL % stock_code)
+    sel_driver.get(BASE_URL % stock_code)
     logging.debug("URL loaded")
     value_text = ""
 
     try:
-        data_div = driver.find_element_by_id("js-category-content")
+        data_div = sel_driver.find_element_by_id("js-category-content")
         value_div = data_div.find_element_by_class_name("js-symbol-last")
         value_text = value_div.text
         value = float(value_text)
@@ -61,7 +60,10 @@ def get_current_price(stock_code: str) -> float:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='quotes.log', format='%(levelname)s:%(asctime)s:%(message)s', level=logging.DEBUG)
+    logging.basicConfig(filename='b3parser/quotes.log', format='%(levelname)s:%(asctime)s:%(message)s',
+                        level=logging.DEBUG)
+    logging.debug("Starting")
+    driver = webdriver.Firefox(options=options)
 
     if 'B3_USER' in os.environ.keys() and 'B3_PASSWD' in os.environ.keys():
         b3user = os.getenv('B3_USER')
@@ -81,7 +83,7 @@ if __name__ == "__main__":
 
     for stock in my_stocks:
 
-        current_price = get_current_price(stock.code)
+        current_price = get_current_price(stock.code, driver)
         if current_price == 0:
             continue
 
