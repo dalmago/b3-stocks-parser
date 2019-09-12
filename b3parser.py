@@ -1,7 +1,9 @@
 import getpass
 import os
+from typing import List
 
 import requests
+import logging
 from bs4 import BeautifulSoup, element
 
 from stock_data import StockData
@@ -34,27 +36,27 @@ class B3StockParser:
         self.__result = None
         # self.__parse_over = Event()
 
-    def parse(self) -> list:
+    def parse(self) -> List[StockData]:
         if self.user is None or self.passwd is None:
             raise RuntimeError("Must set user and password before start parsing.")
 
         self.__result = None
-        print("Connecting")
+        logging.debug("Connecting")
 
         if not self.__get_login_page():
             raise RuntimeError("Unable to get login page")
 
-        print("Accessing B3 CEI page")
+        logging.debug("Accessing B3 CEI page")
 
         if not self.__login():
             raise RuntimeError("Unable to login. Check user name and password.")
 
-        print("Loged in")
+        logging.debug("Loged in")
 
         if not self.__get_transactions_page():
             raise RuntimeError("Unable to get transactions page.")
 
-        print("Reading transactions")
+        logging.debug("Reading transactions")
 
         if not self.__get_transactions():
             raise RuntimeError("Unable to get list of transactions.")
@@ -65,12 +67,12 @@ class B3StockParser:
         if not self.__get_transactions():
             raise RuntimeError("Unable to get list of transactions.")
 
-        print("Parsing table")
+        logging.debug("Parsing table")
 
         if not self.__find_stocks():
             raise RuntimeError("Unable to parse stocks table.")
 
-        print("Done")
+        logging.debug("Done")
         return self._stocks_table.copy()
 
     def __get_login_page(self) -> bool:
@@ -195,6 +197,8 @@ class B3StockParser:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='b3parser.log', format='%(levelname)s:%(asctime)s:%(message)s', level=logging.DEBUG)
+
     if 'B3_USER' in os.environ.keys() and 'B3_PASSWD' in os.environ.keys():
         b3user = os.getenv('B3_USER')
         b3passwd = os.getenv('B3_PASSWD')
