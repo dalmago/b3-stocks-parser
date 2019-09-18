@@ -36,27 +36,29 @@ class B3StockParser:
         self.__result = None
         # self.__parse_over = Event()
 
+        self.logger = logging.getLogger("quotes_reader")
+
     def parse(self) -> List[StockData]:
         if self.user is None or self.passwd is None:
             raise RuntimeError("Must set user and password before start parsing.")
 
         self.__result = None
-        logging.debug("Connecting")
+        self.logger.debug("Connecting")
 
         if not self.__get_login_page():
             raise RuntimeError("Unable to get login page")
 
-        logging.debug("Accessing B3 CEI page")
+        self.logger.debug("Accessing B3 CEI page")
 
         if not self.__login():
             raise RuntimeError("Unable to login. Check user name and password.")
 
-        logging.debug("Loged in")
+        self.logger.debug("Loged in")
 
         if not self.__get_transactions_page():
             raise RuntimeError("Unable to get transactions page.")
 
-        logging.debug("Reading transactions")
+        self.logger.debug("Reading transactions")
 
         if not self.__get_transactions():
             raise RuntimeError("Unable to get list of transactions.")
@@ -67,16 +69,16 @@ class B3StockParser:
         if not self.__get_transactions():
             raise RuntimeError("Unable to get list of transactions.")
 
-        logging.debug("Parsing table")
+        self.logger.debug("Parsing table")
 
         if not self.__find_stocks():
             raise RuntimeError("Unable to parse stocks table.")
 
-        logging.debug("Done")
+        self.logger.debug("Done")
         return self._stocks_table.copy()
 
     def __get_login_page(self) -> bool:
-        res = requests.get(B3StockParser.__B3_HOME_URL, headers=USER_AGENT_HEADER)
+        res = requests.get(B3StockParser.__B3_HOME_URL, headers=USER_AGENT_HEADER, timeout=60)
         if res.status_code != 200:
             return False
 
@@ -90,7 +92,7 @@ class B3StockParser:
             "__VIEWSTATE": self._view_state,
             "__EVENTVALIDATION": self._event_validation,
             "__VIEWSTATEGENERATOR": self._view_state_generator
-        }, headers=USER_AGENT_HEADER)
+        }, headers=USER_AGENT_HEADER, timeout=60)
 
         if res.status_code != 200:
             return False
@@ -101,7 +103,7 @@ class B3StockParser:
     def __get_transactions_page(self) -> bool:
         res = requests.get(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
             "Investidor": self._investor
-        }, headers=USER_AGENT_HEADER)
+        }, headers=USER_AGENT_HEADER, timeout=60)
         if res.status_code != 200:
             return False
 
@@ -119,7 +121,7 @@ class B3StockParser:
             "__VIEWSTATE": self._view_state,
             "__EVENTVALIDATION": self._event_validation,
             "__VIEWSTATEGENERATOR": self._view_state_generator
-        }, headers=USER_AGENT_HEADER)
+        }, headers=USER_AGENT_HEADER, timeout=60)
 
         if res.status_code != 200:
             return False
@@ -197,8 +199,6 @@ class B3StockParser:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='b3parser.log', format='%(levelname)s:%(asctime)s:%(message)s', level=logging.DEBUG)
-
     if 'B3_USER' in os.environ.keys() and 'B3_PASSWD' in os.environ.keys():
         b3user = os.getenv('B3_USER')
         b3passwd = os.getenv('B3_PASSWD')
