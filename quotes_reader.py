@@ -26,15 +26,13 @@ logger.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-logger.debug(os.getcwd())
 
-
-def stock_price_loaded(driver):
+def stock_price_loaded(sel_driver):
     # Checks if the stock price is present in the web page.
     # def __call__(self, driver):
-    data_div = driver.find_element_by_id("js-category-content")
+    data_div = sel_driver.find_element_by_id("js-category-content")
     value_div = data_div.find_element_by_class_name("js-symbol-last")
-    value_text:str = value_div.text.strip()
+    value_text = value_div.text.strip()
     return value_text != ''
 
 
