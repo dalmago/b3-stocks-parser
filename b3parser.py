@@ -11,6 +11,7 @@ from stock_data import StockData
 USER_AGENT_HEADER = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like "
                                    "Gecko) Chrome/39.0.2171.95 Safari/537.36"}
 
+B3_CA_BUNDLE = "b3TrustPath.crt"
 
 class B3StockParser:
     __B3_HOME_URL = "https://cei.b3.com.br/CEI_Responsivo/login.aspx"
@@ -30,11 +31,8 @@ class B3StockParser:
         self._investor = ""
         self._date_from = ""
         self._date_to = ""
-        self._institution = ""
+        self._institutions = []
         self._stocks_table = []
-
-        self.__result = None
-        # self.__parse_over = Event()
 
         self.logger = logging.getLogger("quotes_reader")
 
@@ -42,7 +40,6 @@ class B3StockParser:
         if self.user is None or self.passwd is None:
             raise RuntimeError("Must set user and password before start parsing.")
 
-        self.__result = None
         self.logger.debug("Connecting")
 
         if not self.__get_login_page():
@@ -63,22 +60,11 @@ class B3StockParser:
         if not self.__get_transactions():
             raise RuntimeError("Unable to get list of transactions.")
 
-        # Must be called twice, for some reason. The first time returns just the same page again, with different
-        # view state and event validation, but without the result table. This behavior happens even when accessing
-        # through the browser.
-        if not self.__get_transactions():
-            raise RuntimeError("Unable to get list of transactions.")
-
-        self.logger.debug("Parsing table")
-
-        if not self.__find_stocks():
-            raise RuntimeError("Unable to parse stocks table.")
-
         self.logger.debug("Done")
         return self._stocks_table.copy()
 
     def __get_login_page(self) -> bool:
-        res = requests.get(B3StockParser.__B3_HOME_URL, headers=USER_AGENT_HEADER, timeout=60)
+        res = requests.get(B3StockParser.__B3_HOME_URL, headers=USER_AGENT_HEADER, timeout=60, verify=B3_CA_BUNDLE)
         if res.status_code != 200:
             return False
 
@@ -92,7 +78,7 @@ class B3StockParser:
             "__VIEWSTATE": self._view_state,
             "__EVENTVALIDATION": self._event_validation,
             "__VIEWSTATEGENERATOR": self._view_state_generator
-        }, headers=USER_AGENT_HEADER, timeout=60)
+        }, headers=USER_AGENT_HEADER, timeout=60, verify=B3_CA_BUNDLE)
 
         if res.status_code != 200:
             return False
@@ -103,33 +89,36 @@ class B3StockParser:
     def __get_transactions_page(self) -> bool:
         res = requests.get(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
             "Investidor": self._investor
-        }, headers=USER_AGENT_HEADER, timeout=60)
+        }, headers=USER_AGENT_HEADER, timeout=60, verify=B3_CA_BUNDLE)
         if res.status_code != 200:
             return False
 
         return self.__find_html_attributes(res.text, True)
 
     def __get_transactions(self) -> bool:
-        res = requests.post(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
-            "Investidor": self._investor
-        }, data={
-            "ctl00$ContentPlaceHolder1$ddlAgentes": self._institution,
-            "ctl00$ContentPlaceHolder1$ddlContas": "0",  # self._account,
-            "ctl00$ContentPlaceHolder1$txtDataDeBolsa": self._date_from,
-            "ctl00$ContentPlaceHolder1$txtDataAteBolsa": self._date_to,
-            "ctl00$ContentPlaceHolder1$btnConsultar": "Consultar",
-            "__VIEWSTATE": self._view_state,
-            "__EVENTVALIDATION": self._event_validation,
-            "__VIEWSTATEGENERATOR": self._view_state_generator
-        }, headers=USER_AGENT_HEADER, timeout=60)
+        for institution in self._institutions:
+            res = requests.post(B3StockParser.__B3_TRANSACTIONS_URL, cookies={
+                "Investidor": self._investor
+            }, data={
+                "ctl00$ContentPlaceHolder1$ddlAgentes": institution,
+                "ctl00$ContentPlaceHolder1$ddlContas": "0",  # self._account,
+                "ctl00$ContentPlaceHolder1$txtDataDeBolsa": self._date_from,
+                "ctl00$ContentPlaceHolder1$txtDataAteBolsa": self._date_to,
+                "ctl00$ContentPlaceHolder1$btnConsultar": "Consultar",
+                "__VIEWSTATE": self._view_state,
+                "__EVENTVALIDATION": self._event_validation,
+                "__VIEWSTATEGENERATOR": self._view_state_generator
+            }, headers=USER_AGENT_HEADER, timeout=60, verify=B3_CA_BUNDLE)
 
-        if res.status_code != 200:
-            return False
+            if res.status_code != 200:
+                return False
 
-        if self.__find_html_attributes(res.text, True):
-            self.__result = res.text
-            return True
-        return False
+            self.logger.debug(f"Parsing table for {institution}")
+            if not self.__find_stocks(res.text, institution):
+                self.logger.error(f"Unable to parse stocks table for {institution}.")
+                return False
+        return True
+
 
     def __find_html_attributes(self, html_data: str, read_form_fields: bool = False) -> bool:
         soup = BeautifulSoup(html_data, 'html.parser')
@@ -161,32 +150,32 @@ class B3StockParser:
                 return False
             self._date_to = date_to.get('value', '')
 
-            inst_sel = soup.find('select', id="ctl00_ContentPlaceHolder1_ddlAgentes")
-            if inst_sel is None:
+            institution = soup.find('select', id="ctl00_ContentPlaceHolder1_ddlAgentes")
+            if institution is None:
                 return False
-            for inst in inst_sel.children:
+            for inst in institution.children:
                 if type(inst) is element.Tag:
-                    if inst.get('selected', '') == 'selected':
-                        self._institution = inst.get('value', '')
-                        return True
+                    if inst.get('value', '-1') != '-1':
+                        self._institutions.append(inst.get('value', ''))
         return True
 
-    def __find_stocks(self) -> bool:
-        if self.__result is None:
+    def __find_stocks(self, html: str, institution: str = "") -> bool:
+        if html is None:
             return False
 
-        soup = BeautifulSoup(self.__result, 'html.parser')
-        stocks_table = soup.find('div', id=B3StockParser.__STOCKS_TABLE_ID)
-        if stocks_table is None:
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.find_all('div', id=B3StockParser.__STOCKS_TABLE_ID)
+
+        if tables is None:
             return False
 
-        try:
-            rows = stocks_table.table.tbody.find_all('tr')
-            for row in rows:
-                self._stocks_table.append(StockData(row))
-
-        except AttributeError:
-            return False
+        for stocks_table in tables:
+            try:
+                rows = stocks_table.table.tbody.find_all('tr')
+                for row in rows:
+                    self._stocks_table.append(StockData(row, institution))
+            except AttributeError:
+                return False
 
         return True
 
