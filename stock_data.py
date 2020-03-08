@@ -1,10 +1,17 @@
+import csv
+from typing import ClassVar, Dict
 from datetime import date, datetime
 
 from bs4 import element
 
+TAXES_FILE = 'taxas_corretoras.csv'
+
 
 class StockData:
-    def __init__(self, table_row: element = None) -> None:
+
+    __taxes_dict: ClassVar[Dict] = None
+
+    def __init__(self, table_row: element, agent: str = "") -> None:
         self.code: str = ""
         self.buy_date: date = None
         self.sell_date: date = None
@@ -12,7 +19,11 @@ class StockData:
         self.sell_price: float = 0
         self.buy_amount: int = 0
         self.sell_amount: int = 0
-        self.position: str = ""
+        self.position: str = None
+        self.agent: str = agent
+
+        if StockData.__taxes_dict is None:
+            StockData.__taxes_dict = self.__parse_tax_file()
 
         self.__initialized = False
 
@@ -44,13 +55,31 @@ class StockData:
         self.position = data_list[7].text.strip()
         self.__initialized = True
 
+    def __parse_tax_file(self):
+        tax_dict = {}
+        try:
+            with open(TAXES_FILE, 'r') as csv_file:
+                csv_dict = csv.DictReader(csv_file)
+                for agent_tax in csv_dict:
+                    tax_dict[agent_tax['cod']] = {
+                        "corr": agent_tax['corretagem'],
+                        "iss": agent_tax['ISS'],
+                        "liquid": agent_tax['liquidacao'],
+                        "emol": agent_tax['emolumentos'],
+                        "name": agent_tax['nome']
+                    }
+        except FileNotFoundError:
+            pass
+
+        return tax_dict
+
     def __str__(self) -> str:
         if self.__initialized:
             if self.position == 'ZERADA':
-                return "%s: %s stocks, profit: R$%.2f" % (self.code, self.buy_amount,
-                                                        self.sell_amount * (self.sell_price - self.buy_price))
+                return (f"{self.code}: {self.buy_amount} stocks, profit: "
+                        f"R${self.sell_amount * (self.sell_price - self.buy_price):.2f}")
             elif self.position == 'COMPRADA':
-                return "%s: %s stocks, bought at: %s, R$%s" %(self.code, self.buy_amount, self.buy_date, self.buy_price)
+                return f"{self.code}: {self.buy_amount} stocks, bought at: {self.buy_date}, R${self.buy_price}"
             else:
                 return "Position type not implemented yet"
         else:

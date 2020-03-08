@@ -29,7 +29,6 @@ logger.addHandler(handler)
 
 def stock_price_loaded(sel_driver):
     # Checks if the stock price is present in the web page.
-    # def __call__(self, driver):
     data_div = sel_driver.find_element_by_id("js-category-content")
     value_div = data_div.find_element_by_class_name("js-symbol-last")
     value_text = value_div.text.strip()
@@ -121,7 +120,7 @@ if __name__ == "__main__":
             continue
 
         if stock.code in local_info.keys():
-            price_diff[stock.code] = current_price - local_info[stock.code]
+            price_diff[stock.code] = (current_price - local_info[stock.code]) * stock.buy_amount
 
         local_info[stock.code] = current_price
 
